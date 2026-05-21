@@ -8,6 +8,10 @@ from src.service.llm_service import LLMService
 # Expand the page to full width
 st.set_page_config(layout="wide")
 
+# Initialize the model
+if "openai_model" not in st.session_state:
+    st.session_state["openai_model"] = "gpt-4o"
+
 @st.cache_resource
 def get_openai_client():
     # Create custom httpx client with SSL verification turned off
