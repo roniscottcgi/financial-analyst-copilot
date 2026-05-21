@@ -39,10 +39,11 @@ message = [
 
 # Display assistant response in chat message container
 with st.chat_message("assistant"):
-    stream = client.chat.completions.create(
-        model=st.session_state["openai_model"],
-        messages=message,
-        stream=True,
-    )
-    response = st.write_stream(stream)
-st.session_state.messages.append({"role": "assistant", "content": response})
+    if message:
+        stream = client.chat.completions.create(
+            model=st.session_state["openai_model"],
+            messages=message,
+            stream=True,
+        )
+        response = st.write_stream(stream)
+        st.session_state.messages.append({"role": "assistant", "content": response})
