@@ -1,6 +1,5 @@
 import streamlit as st
-import random
-import time
+import httpx
 
 from typing import Generator
 from openai import OpenAI
@@ -8,7 +7,10 @@ from openai import OpenAI
 st.title("Financial Assistant Chat")
 
 # Set OpenAI API key from Streamlit secrets
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+client = OpenAI(
+    http_client=httpx.Client(verify=False),
+    api_key=st.secrets["OPENAI_API_KEY"]
+)
 
 # Set a default model
 if "openai_model" not in st.session_state:
@@ -44,7 +46,7 @@ if prompt := st.chat_input("What is up?"):
 #         yield word + " "
 #         time.sleep(0.05)
 
-response = f"Echo: {prompt}"
+# response = f"Echo: {prompt}"
 # Display assistant response in chat message container
 with st.chat_message("assistant"):
     stream = client.chat.completions.create(
