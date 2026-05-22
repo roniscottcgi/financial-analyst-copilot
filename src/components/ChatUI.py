@@ -47,14 +47,23 @@ class ChatUI:
 
         # Create a toggle widget for opening/closing the chat
         with st.container(key="sidebar_bottom"):
-            chat_toggle = st.toggle("Show Chat Assistant", key="sidebar_toggle")
+            col1, col2 = st.columns([3,1])
+
+            with col1:
+                chat_toggle = st.toggle("Show Chat Assistant", key="sidebar_toggle")
+
+            with col2:
+                if chat_toggle and st.session_state.messages:
+                    if st.button("Clear", key="clear_chat_btn", use_container_width=True):
+                        st.session_state.messages = []
+                        st.rerun()
 
         if not chat_toggle:
             st.info("Chat is currently closed. Toggle the chat window to open the chat assistant.")
             return
 
         # Create a container for the all messages
-        chat_container = st.container()
+        chat_container = st.container(height=500, autoscroll=True)
 
         # Check for new input FIRST (Process data layer before UI layer)
         new_user_input = st.chat_input("How can I assist you?")
