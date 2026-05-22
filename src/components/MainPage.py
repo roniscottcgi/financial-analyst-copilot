@@ -13,17 +13,14 @@ class MainPage:
         # Create columns (adjust ratios to fit your needs)
         left_sidebar, main_content, right_sidebar = st.columns([2, 4, 2], border=True)
 
-        # Left sidebar
         with left_sidebar:
             left_sidebar_ui = HistoryPage("source for now")
             left_sidebar_ui.render()
 
-        # Main content
         with main_content:
             right_sidebar_ui = QueryPage("source for now")
             right_sidebar_ui.render()
 
-        # Right sidebar
         with right_sidebar:
             right_sidebar_ui = ChatUI(llm_service=self.llm_service)
             right_sidebar_ui.render()
