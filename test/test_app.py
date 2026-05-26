@@ -3,7 +3,7 @@ from unittest.mock import patch, Mock, MagicMock
 
 from streamlit.testing.v1 import AppTest
 
-class TestApp(unittest.TestCase):
+class TestApp():
 
     @patch('src.utils.factory.get_openai_client')
     @patch('src.service.llm_service.LLMService')
@@ -20,3 +20,4 @@ class TestApp(unittest.TestCase):
         mock_client_instance.return_value = mock_client_instance
         mock_llm_instance.return_value = mock_llm_instance
         mock_ui_instance.render.assert_called_once()
+        assert at

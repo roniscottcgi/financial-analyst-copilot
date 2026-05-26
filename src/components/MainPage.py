@@ -10,7 +10,6 @@ class MainPage:
         self.llm_service = llm_service
 
     def render(self):
-        # Create columns (adjust ratios to fit your needs)
         left_sidebar, main_content, right_sidebar = st.columns([2, 4, 2], border=True)
 
         with left_sidebar:

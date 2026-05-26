@@ -3,3 +3,5 @@ openai
 pytest
 httpx
 respx
+coverage
+pytest-cov

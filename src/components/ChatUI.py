@@ -35,6 +35,17 @@ def handle_user_input(user_input: str | ChatInputValue) -> list[dict[str, Any]]:
     return message
 
 
+def display_chat_history():
+    for i, message in enumerate(st.session_state.messages):
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+
+def init_history():
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
+
 class ChatUI:
     def __init__(self, llm_service: LLMService):
         self.llm_service = llm_service
@@ -43,7 +54,7 @@ class ChatUI:
         st.title("Financial Assistant Chat")
 
         # Initialize chat history
-        self.init_history()
+        init_history()
 
         # Create a toggle widget for opening/closing the chat
         with st.container(key="sidebar_bottom"):
@@ -66,7 +77,7 @@ class ChatUI:
         chat_container = st.container(height=500, autoscroll=True)
 
         # Check for new input FIRST (Process data layer before UI layer)
-        new_user_input = st.chat_input("How can I assist you?")
+        new_user_input = st.chat_input("How can I assist you?", key="chat_input_key")
 
         # We will hold the assistant response payload here if one is generated
         assistant_payload = None
@@ -81,22 +92,13 @@ class ChatUI:
             ]
 
         with chat_container:
-            self.display_chat_history()
+            display_chat_history()
 
             if assistant_payload:
                 with st.chat_message("assistant"):
                     stream = self.collect_assistant_response(assistant_payload)
                     response = st.write_stream(stream)
                     append_chat_messages("assistant", response)
-
-    def init_history(self):
-        if "messages" not in st.session_state:
-            st.session_state.messages = []
-
-    def display_chat_history(self):
-        for i, message in enumerate(st.session_state.messages):
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
 
     def collect_assistant_response(self, message: list[dict[str, Any]]):
         return self.llm_service.send_request_to_assistant(

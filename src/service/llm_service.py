@@ -1,5 +1,3 @@
-from typing import List
-
 from openai import OpenAI
 
 class LLMService:
