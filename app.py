@@ -6,11 +6,9 @@ from src.service.llm_service import LLMService
 
 st.set_page_config(layout="wide")
 
-# Initialize the model
 if "openai_model" not in st.session_state:
     st.session_state["openai_model"] = "gpt-4o"
 
-# Instantiate Core Logic
 client = get_openai_client()
 llm_service = LLMService(client=client)
 
