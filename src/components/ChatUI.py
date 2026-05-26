@@ -9,6 +9,11 @@ class ChatUI:
     def __init__(self, llm_service: LLMService):
         self.llm_service = llm_service
 
+    def collect_assistant_response(self, message: list[dict[str, Any]]):
+        return self.llm_service.send_request_to_assistant(
+            model=st.session_state["openai_model"],
+            message=message)
+
     @staticmethod
     def append_chat_messages(role: str, user_input: str | ChatInputValue | list[Any]):
         st.session_state.messages.append({"role": role, "content": user_input})
@@ -42,9 +47,7 @@ class ChatUI:
             return
 
         chat_container = st.container(height=500, autoscroll=True)
-
         new_user_input = st.chat_input("How can I assist you?", key="chat_input_key")
-
         assistant_payload = None
 
         if new_user_input:
@@ -62,9 +65,3 @@ class ChatUI:
                     stream = self.collect_assistant_response(assistant_payload)
                     response = st.write_stream(stream)
                     self.append_chat_messages("assistant", response)
-
-    def collect_assistant_response(self, message: list[dict[str, Any]]):
-        return self.llm_service.send_request_to_assistant(
-            model=st.session_state["openai_model"],
-            message=message
-        )
