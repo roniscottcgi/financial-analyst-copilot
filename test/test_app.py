@@ -13,10 +13,8 @@ class TestApp():
         mock_llm_instance = llm_service_mock.return_value
         mock_ui_instance = main_page_mock.return_value
 
-        # Run the app
         at = AppTest.from_file("app.py").run()
 
-        # Verify the render method on that specific instance was called
         mock_client_instance.return_value = mock_client_instance
         mock_llm_instance.return_value = mock_llm_instance
         mock_ui_instance.render.assert_called_once()
