@@ -18,7 +18,7 @@ class TestMainPage:
         def run_app(llm_mock):
             from src.components.MainPage import MainPage
 
-            page = MainPage(llm_service=llm_mock)
+            page = MainPage(llm_service=llm_mock, db_chain=db)
             page.render()
 
         at = AppTest.from_function(run_app, args=(mock_llm_instance,)).run()
