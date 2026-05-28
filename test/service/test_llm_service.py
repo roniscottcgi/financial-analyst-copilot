@@ -18,7 +18,7 @@ class TestLLMService():
 
         mock_create.return_value = [mock_response_chunk_1, mock_response_chunk_2]
 
-        service = LLMService(client=open_ai_mock_instance)
+        service = LLMService(llm_client=open_ai_mock_instance)
 
         stream_response = service.send_request_to_assistant(
             model="test-model",

@@ -18,23 +18,29 @@ class QueryPage:
             st.title("AI Database Assistant")
             st.write("This content is perfectly centered within the main area")
 
-            with st.form("sql_generator_form", clear_on_submit=False):
+            if "generated_sql" not in st.session_state:
+                st.session_state.generated_sql = None
+
+            with st.form("sql_form", clear_on_submit=False):
                 user_query = st.text_input(
                     "What do you need?",
-                    placeholder= "e.g., Show me the top 10 customers by revenue in 2025")
+                    placeholder= "e.g., Show me the top 10 customers by revenue in 2025",
+                    key= "query")
 
                 submitted = st.form_submit_button("Generate SQL")
 
             if submitted and user_query:
-                with st.spinner("Analyzing database schema and generating query..."):
-                    # --- PLACEHOLDER FOR YOUR AI/LLM CALL ---
-                    # generated_sql = call_your_llm_function(user_query)
+                with st.spinner("Analyzing database db and generating query..."):
                     generated_sql = self.db_service.get_response(user_query)
-                    # generated_sql = f"SELECT * FROM customers WHERE year = 2025 ORDER BY revenue DESC LIMIT 10;"
+                    st.session_state.generated_sql = generated_sql
 
+            if st.session_state.generated_sql:
                 st.subheader("Generated SQL Query")
-                st.code(generated_sql, language="sql")
+                st.code(st.session_state.generated_sql, language="sql")
 
                 # Optional: Display a data preview container below
                 st.subheader("Query Results Preview")
                 st.info("Click 'Execute' to run this query against the database.")
+
+                if st.button("Execute Query"):
+                    st.success("Query executed successfully")

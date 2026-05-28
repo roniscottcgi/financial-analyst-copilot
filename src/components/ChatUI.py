@@ -49,10 +49,6 @@ class ChatUI:
         chat_container = st.container(height=500, autoscroll=True)
         new_user_input = st.chat_input("How can I assist you?", key="chat_input_key")
         assistant_payload = None
-        #
-        # if new_user_input:
-        #     self.append_chat_messages("user", new_user_input)
-        #     st.rerun()
 
         if new_user_input:
             self.append_chat_messages("user", new_user_input)
