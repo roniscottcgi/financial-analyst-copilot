@@ -18,10 +18,11 @@ class DBService:
             error_msg = f"An error occurred while creating your database: {str(e)}"
             st.error(error_msg)
 
-    @staticmethod
-    def get_response(db_chain: SQLDatabaseChain, user_query: str | ChatInputValue | None):
+    def get_response(self, user_query: str | ChatInputValue | None):
         try:
-            return db_chain.run(user_query)
+            if not self.db_chain:
+                raise ValueError("No database chain provided")
+            return self.db_chain.run(user_query)
         except Exception as e:
             error_msg = f"An error occurred while processing your query: {str(e)}"
             st.error(error_msg)

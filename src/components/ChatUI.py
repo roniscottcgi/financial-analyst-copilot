@@ -66,7 +66,6 @@ class ChatUI:
 
             if assistant_payload:
                 with st.chat_message("assistant"):
-
-                    stream = self.collect_assistant_response(assistant_payload)
-                    response = st.write_stream(stream)
-                    self.append_chat_messages("assistant", response)
+                        stream = self.collect_assistant_response(assistant_payload)
+                        response = st.write_stream(stream)
+                        self.append_chat_messages("assistant", response)

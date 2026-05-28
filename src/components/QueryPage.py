@@ -19,17 +19,18 @@ class QueryPage:
             st.write("This content is perfectly centered within the main area")
 
             with st.form("sql_generator_form", clear_on_submit=False):
-                user_prompt = st.text_input(
+                user_query = st.text_input(
                     "What do you need?",
                     placeholder= "e.g., Show me the top 10 customers by revenue in 2025")
 
                 submitted = st.form_submit_button("Generate SQL")
 
-            if submitted and user_prompt:
+            if submitted and user_query:
                 with st.spinner("Analyzing database schema and generating query..."):
                     # --- PLACEHOLDER FOR YOUR AI/LLM CALL ---
-                    # generated_sql = call_your_llm_function(user_prompt)
-                    generated_sql = f"SELECT * FROM customers WHERE year = 2025 ORDER BY revenue DESC LIMIT 10;"
+                    # generated_sql = call_your_llm_function(user_query)
+                    generated_sql = self.db_service.get_response(user_query)
+                    # generated_sql = f"SELECT * FROM customers WHERE year = 2025 ORDER BY revenue DESC LIMIT 10;"
 
                 st.subheader("Generated SQL Query")
                 st.code(generated_sql, language="sql")
