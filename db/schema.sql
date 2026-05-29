@@ -138,8 +138,9 @@ INSERT INTO customers VALUES
 (27, 'Customer 27', 'MidMarket', 'APAC', 'Active', '2023-07-09'),
 (28, 'Customer 28', 'MidMarket', 'APAC', 'Active', '2023-07-16'),
 (29, 'Customer 29', 'MidMarket', 'APAC', 'Active', '2023-07-23'),
-(30, 'Customer 30', 'Enterprise', 'APAC', 'Active', '2023-07-30');
-
+(30, 'Customer 30', 'Enterprise', 'APAC', 'Active', '2023-07-30'),
+(31, 'Customer 31', 'Enterprise', 'APAC', 'Inactive', '2023-08-01'),
+(32, 'Customer 32', 'Enterprise', 'APAC', 'Inactive', '2023-08-03');
 
 INSERT INTO products VALUES
 (1, 'Product 1', 'Platform', 'Premium', 'Y'),

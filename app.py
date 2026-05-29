@@ -3,7 +3,7 @@ import streamlit as st
 from src.components.MainPage import MainPage
 from src.service import db_service
 from src.service.db_service import DBService
-from src.utils.factory import init_openai_client, init_database_client, init_db
+from src.utils.factory import init_openai_client, get_database_client, init_db
 from src.service.llm_service import LLMService
 
 st.set_page_config(layout="wide")
@@ -24,7 +24,7 @@ if "llm_service" not in st.session_state:
     st.session_state.llm_service = llm_service
 
 if "db_service" not in st.session_state:
-    db_client, db_connection = init_database_client()
+    db_client, db_connection = get_database_client()
     if db_client is None:
         st.error("Failed to initialize database.")
         st.stop()

@@ -1,0 +1,14 @@
+examples = [
+    {
+        "input": "List all tables in the database",
+        "query": "SELECT name FROM sqlite_master WHERE type='table';"
+    },
+    {
+        "input": "How many kpi definitions are there?",
+        "query": "SELECT COUNT(*) FROM kpi_definitions;"
+    },
+    {
+        "input": "Find the highest KPI value achieved last month",
+        "query": "SELECT MAX(kpi_value) FROM kpi_logs WHERE log_date >= date('now', '-1 month');"
+    }
+]

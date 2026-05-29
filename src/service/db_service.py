@@ -8,6 +8,9 @@ from langchain_core.runnables import RunnableLambda
 from sqlalchemy.engine import row
 from streamlit.elements.widgets.chat import ChatInputValue
 
+from src.utils.factory import get_database_client
+
+
 class DBService:
     def __init__(self, db_client: SQLDatabase):
         self.db_client = db_client
@@ -25,28 +28,13 @@ class DBService:
     def get_live_examples():
         if "db_connection" not in st.session_state:
             ValueError("No database connection provided")
-        connection = st.session_state.db_connection
-        cursor = connection.cursor()
+        db_client, db_connection = get_database_client()
+        cursor = db_connection.cursor()
         cursor.execute("SELECT user_input, sql_query FROM prompt_examples;")
         rows = cursor.fetchall()
         return [{"input": row[0], "query": row[1]} for row in rows]
 
     def create_db_chain(self, llm_client, db_client):
-        examples = [
-            {
-                "input": "List all tables in the database",
-                "query": "SELECT name FROM sqlite_master WHERE type='table';"
-            },
-            {
-                "input": "How many kpi definitions are there?",
-                "query": "SELECT COUNT(*) FROM kpi_definitions;"
-            },
-            {
-                "input": "Find the highest KPI value achieved last month",
-                "query": "SELECT MAX(kpi_value) FROM kpi_logs WHERE log_date >= date('now', '-1 month');"
-            }
-        ]
-
         example_prompt = PromptTemplate(
             template="User Input: {input}\nSQL Query: {query}",
             input_variables=["input", "table_info"]
@@ -118,3 +106,11 @@ class DBService:
             return self.db_client.run(sql)
         except Exception as e:
             error_msg = f"An error occurred while executing your query: {str(e)}"
+
+    def add_new_example(self, user_input: str, sql_query: str):
+        if "db_connection" not in st.session_state:
+            ValueError("No database connection provided")
+        db_client, db_connection = get_database_client()
+        cursor = db_connection.cursor()
+        cursor.execute("INSERT INTO prompt_examples (user_input, sql_query) VALUES (?, ?);", (user_input, sql_query))
+        db_connection.commit()

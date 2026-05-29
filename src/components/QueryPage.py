@@ -46,3 +46,18 @@ class QueryPage:
                     result = self.db_service.execute_query(st.session_state.generated_sql)
                     st.code(result, language="sql")
                     st.success("Query executed successfully")
+
+        st.markdown("---")
+        with st.expander("🛠️ Teach the AI (Add New Search Rules)"):
+            st.write("If the AI failed to guess a specific word, teach it the correct mapping here.")
+
+            new_phrase = st.text_input("When a user types this phrase:", placeholder="e.g., broken accounts")
+            new_sql = st.text_area("It should generate this exact SQL query:",
+                                   placeholder="SELECT * FROM customers WHERE status = 'Churned';")
+
+            if st.button("Save Example"):
+                if new_phrase and new_sql:
+                    self.db_service.add_new_example(new_phrase, new_sql)
+                    st.success("Example saved successfully! Try your query again above.")
+                else:
+                    st.warning("Please fill out both fields.")

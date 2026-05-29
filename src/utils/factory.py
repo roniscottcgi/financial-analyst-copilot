@@ -40,7 +40,7 @@ def init_db():
     return connection
 
 @st.cache_resource
-def init_database_client():
+def get_database_client():
     try:
         shared_connection = init_db()
         st.session_state.db_connection = shared_connection
