@@ -102,6 +102,12 @@ CREATE TABLE IF NOT EXISTS workflow_feedback (
   feedback_note VARCHAR(255)
 );
 
+CREATE TABLE IF NOT EXISTS prompt_examples (
+ id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+ user_input TEXT NOT NULL,
+ sql_query TEXT NOT NULL
+);
+
 INSERT INTO customers VALUES
 (1, 'Customer 1', 'MidMarket', 'NA', 'Active', '2023-01-08'),
 (2, 'Customer 2', 'Strategic', 'NA', 'Active', '2023-01-15'),
@@ -1029,3 +1035,7 @@ INSERT INTO workflow_feedback VALUES
 (118, 'Customer Support Automation', 'Architect', '2026-01-01', 2.58, 'N', 'Needed stronger retrieval for the right article'),
 (119, 'Internal Knowledge Assistant', 'Analyst', '2026-06-19', 2.64, 'N', 'Human review improved trust before sending'),
 (120, 'Financial Analyst Copilot', 'Delivery Lead', '2026-01-03', 4.17, 'Y', 'Needed stronger retrieval for the right article');
+
+INSERT INTO prompt_examples VALUES
+(1, 'Show me customers who are at risk', "SELECT * FROM customers WHERE status = 'AtRisk';"),
+(2, 'find clients who are vulnerable', "SELECT * FROM customers WHERE status = 'AtRisk';")

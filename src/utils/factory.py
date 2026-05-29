@@ -13,7 +13,8 @@ def init_openai_client():
         model = st.session_state["openai_model"]
         return ChatOpenAI(
             model=model,
-            http_client=httpx.Client(verify=False))
+            http_client=httpx.Client(verify=False),
+            temperature=0)
     except Exception as e:
         logger.error(e)
 
