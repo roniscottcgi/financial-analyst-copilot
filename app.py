@@ -17,7 +17,7 @@ if "llm_service" not in st.session_state:
 if "db_service" not in st.session_state:
     init_db()
     st.session_state.db_client = init_database_client()
-    db_service = DBService(client=st.session_state.db_client)
+    db_service = DBService(db_client=st.session_state.db_client)
     db_service.create_db_chain(
         llm_client=st.session_state.llm_client,
         db_client=st.session_state.db_client)

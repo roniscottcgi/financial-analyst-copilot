@@ -43,4 +43,6 @@ class QueryPage:
                 st.info("Click 'Execute' to run this query against the database.")
 
                 if st.button("Execute Query"):
+                    result = self.db_service.execute_query(st.session_state.generated_sql)
+                    st.code(result, language="sql")
                     st.success("Query executed successfully")
