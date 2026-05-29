@@ -2,14 +2,10 @@ import re
 
 import streamlit as st
 from langchain_classic.chains.sql_database.query import create_sql_query_chain
-from langchain_community.tools import QuerySQLDataBaseTool
 from langchain_community.utilities import SQLDatabase
-from langchain_community.vectorstores import FAISS
-from langchain_core.example_selectors import SemanticSimilarityExampleSelector
 from langchain_core.prompts import PromptTemplate, FewShotPromptTemplate
 from langchain_core.runnables import RunnableLambda
-from langchain_experimental.sql import SQLDatabaseChain
-from langchain_openai import OpenAIEmbeddings
+from sqlalchemy.engine import row
 from streamlit.elements.widgets.chat import ChatInputValue
 
 class DBService:
@@ -24,6 +20,16 @@ class DBService:
         cleaned = re.sub(r"^```(?:sql)?\n?", "", cleaned, flags=re.IGNORECASE)
         cleaned = re.sub(r"\n?```$", "", cleaned)
         return cleaned.strip()
+
+    @staticmethod
+    def get_live_examples():
+        if "db_connection" not in st.session_state:
+            ValueError("No database connection provided")
+        connection = st.session_state.db_connection
+        cursor = connection.cursor()
+        cursor.execute("SELECT user_input, sql_query FROM prompt_examples;")
+        rows = cursor.fetchall()
+        return [{"input": row[0], "query": row[1]} for row in rows]
 
     def create_db_chain(self, llm_client, db_client):
         examples = [
@@ -40,6 +46,7 @@ class DBService:
                 "query": "SELECT MAX(kpi_value) FROM kpi_logs WHERE log_date >= date('now', '-1 month');"
             }
         ]
+
         example_prompt = PromptTemplate(
             template="User Input: {input}\nSQL Query: {query}",
             input_variables=["input", "table_info"]
@@ -68,9 +75,12 @@ class DBService:
         {input}
         """
 
+        live_examples = self.get_live_examples()
+
         few_shot_prompt = FewShotPromptTemplate(
             # example_selector=example_selector,
-            examples=examples,
+            examples=live_examples,
+            # examples=examples,
             example_prompt=example_prompt,
             prefix=prefix,
             suffix="User Input: {input}\nSQL Query: ",

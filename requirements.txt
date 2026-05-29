@@ -10,3 +10,4 @@ langchain-community
 langchain-experimental
 langchain-openai
 sqlalchemy
+langchain-core

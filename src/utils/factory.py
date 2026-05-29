@@ -6,6 +6,7 @@ import httpx as httpx
 from langchain_community.utilities import SQLDatabase
 from langchain_core.callbacks.manager import logger
 from langchain_openai import ChatOpenAI
+from sqlalchemy import create_engine
 
 @st.cache_resource
 def init_openai_client():
@@ -41,7 +42,10 @@ def init_db():
 @st.cache_resource
 def init_database_client():
     try:
-        db_uri = "sqlite:///db/sample.db"
-        return SQLDatabase.from_uri(db_uri)
+        shared_connection = init_db()
+        st.session_state.db_connection = shared_connection
+        engine = create_engine("sqlite://", creator=lambda: shared_connection)
+        return SQLDatabase(engine, sample_rows_in_table_info=3), shared_connection
     except Exception as e:
-        logger.error(e)
+        logger.error(f"Failed to initialize LangChain DB client: {e}")
+        return None
