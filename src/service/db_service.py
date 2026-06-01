@@ -38,7 +38,9 @@ class DBService:
         try:
             engine = get_engine()
             with engine.begin() as conn:
-                conn.execute("INSERT INTO prompt_examples (user_input, sql_query) VALUES (?, ?);", (user_input, sql_query))
+                conn.execute(
+                    text("INSERT INTO prompt_examples (user_input, sql_query) VALUES (:user_input, :sql_query);"),
+                    {"user_input":user_input, "sql_query": sql_query})
         except Exception as e:
             error_msg = f"An error occurred while creating your database: {str(e)}"
             st.error(error_msg)
