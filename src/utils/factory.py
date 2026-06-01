@@ -4,8 +4,10 @@ import re
 import sqlite3
 import httpx as httpx
 from langchain_community.utilities import SQLDatabase
+
+from langchain_chroma import Chroma
 from langchain_core.callbacks.manager import logger
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from sqlalchemy import create_engine
 
 DB_FILE = 'db/sample.db'
@@ -60,3 +62,16 @@ def get_database():
     except Exception as e:
         logger.error(f"Failed to initialize LangChain DB client: {e}")
         return None
+
+def init_vector_store(chunks):
+    if not chunks:
+        return None
+
+    embeddings = OpenAIEmbeddings(
+        api_key=st.secrets["OPENAI_API_KEY"],
+        http_client = httpx.Client(verify=False))
+
+    vector_store = Chroma.from_documents(
+        documents=chunks,
+        embedding=embeddings)
+    return vector_store

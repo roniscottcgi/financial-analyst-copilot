@@ -20,7 +20,6 @@ if llm_service is None:
     st.error("Failed to initialize openai client.")
     st.stop()
 
-# if "db_service" not in st.session_state:
 db_client = get_database()
 if db_client is None:
     st.error("Failed to initialize database.")

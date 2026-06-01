@@ -1,9 +1,19 @@
 import streamlit as st
+
 from typing import Any
-
+from docx import Document
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
+from langchain_classic.chains.retrieval import create_retrieval_chain
+from langchain_core.documents import Document as LCDocument
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from streamlit.elements.widgets.chat import ChatInputValue
-
+from langchain_chroma import Chroma
 from src.service.llm_service import LLMService
+from src.utils.factory import init_vector_store, init_openai_client
+from docx import Document
+from pypdf import PdfReader
+
 
 class ChatUI:
     def __init__(self, llm_service: LLMService):
@@ -13,6 +23,17 @@ class ChatUI:
         return self.llm_service.send_request_to_assistant(
             model=st.session_state["openai_model"],
             message=message)
+
+    @staticmethod
+    def extract_text(uploaded_file):
+        name = uploaded_file.name
+        if name.endswith('.pdf'):
+            pdf_reader = PdfReader(uploaded_file)
+            return "\n".join([page.extract_text() for page in pdf_reader.pages if page.extract_text()])
+        elif name.endswith('.docx'):
+            doc = Document(uploaded_file)
+            return "\n".join([p.text for p in doc.paragraphs])
+        return ""
 
     @staticmethod
     def append_chat_messages(role: str, user_input: str | ChatInputValue | list[Any]):
@@ -29,6 +50,8 @@ class ChatUI:
 
         if "messages" not in st.session_state:
             st.session_state.messages = []
+        if "vector_store" not in st.session_state:
+            st.session_state.vector_store = None
 
         with st.container(key="toggle_container"):
             col1, col2 = st.columns([3,1])
@@ -48,6 +71,33 @@ class ChatUI:
 
         chat_container = st.container(height=500, autoscroll=True)
         new_user_input = st.chat_input("How can I assist you?", key="chat_input_key")
+        uploaded_files = st.file_uploader(
+            "Upload your data file(s)",
+            type=["docx", "pdf"],
+            accept_multiple_files=True)
+
+        chunks = []
+
+        if uploaded_files and st.session_state.vector_store is None:
+            all_lc_docs = []
+
+            for uploaded_file in uploaded_files:
+                text = self.extract_text(uploaded_file)
+                if text.strip():
+                    doc = LCDocument(page_content=text, metadata={"source": uploaded_file.name})
+                    all_lc_docs.append(doc)
+                if all_lc_docs:
+                    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+                    chunks = text_splitter.split_documents(all_lc_docs)
+
+                    with st.spinner("Generating embeddings and saving to Chroma DB..."):
+                        st.session_state.vector_store = init_vector_store(chunks)
+                        st.success(f"Successfully indexed {len(chunks)} text chunks into Chroma!")
+                        st.rerun()
+
+        if st.session_state.vector_store is not None:
+            st.caption("✅ Vector Database Status: Active & Loaded")
+
         assistant_payload = None
 
         if new_user_input:
@@ -62,6 +112,33 @@ class ChatUI:
 
             if assistant_payload:
                 with st.chat_message("assistant"):
-                        stream = self.collect_assistant_response(assistant_payload)
-                        response = st.write_stream(stream)
-                        self.append_chat_messages("assistant", response)
+                    # Fallback if user types without uploading docs
+                    if st.session_state.vector_store is None:
+                        st.warning("Please upload and index documents first before asking RAG questions.")
+                    else:
+                        llm_client = init_openai_client()
+                        retriever = st.session_state.vector_store.as_retriever(search_kwargs={"k": 3})
+
+                        system_prompt = (
+                            "You are a helpful assistant. Answer the question using only "
+                            "the provided context below. If you do not know, say you don't know.\n\n"
+                            "Context:\n{context}"
+                        )
+                        prompt = ChatPromptTemplate.from_messages([
+                            ("system", system_prompt),
+                            ("human", "{input}"),
+                        ])
+
+                        qa_chain = create_stuff_documents_chain(llm_client, prompt)
+                        rag_chain = create_retrieval_chain(retriever, qa_chain)
+
+                        placeholder = st.empty()
+                        full_response = ""
+
+                        # Smooth streaming block fix
+                        for chunk in rag_chain.stream({"input": new_user_input}):
+                            if "answer" in chunk:
+                                full_response += chunk["answer"]
+                                placeholder.markdown(full_response)
+
+                        self.append_chat_messages("assistant", full_response)

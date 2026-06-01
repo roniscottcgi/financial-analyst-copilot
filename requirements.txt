@@ -11,3 +11,9 @@ langchain-experimental
 langchain-openai
 sqlalchemy
 langchain-core
+python-docx
+pandas
+pdfreader
+langchain-text-splitters
+pypdf
+langchain-chroma
