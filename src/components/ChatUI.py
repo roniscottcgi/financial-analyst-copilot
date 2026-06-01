@@ -48,6 +48,8 @@ class ChatUI:
     def render(self):
         st.title("Financial Assistant Chat")
 
+        if "show_banner" not in st.session_state:
+            st.session_state.show_banner = True
         if "messages" not in st.session_state:
             st.session_state.messages = []
         if "vector_store" not in st.session_state:
@@ -76,8 +78,6 @@ class ChatUI:
             type=["docx", "pdf"],
             accept_multiple_files=True)
 
-        chunks = []
-
         if uploaded_files and st.session_state.vector_store is None:
             all_lc_docs = []
 
@@ -90,13 +90,19 @@ class ChatUI:
                     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
                     chunks = text_splitter.split_documents(all_lc_docs)
 
-                    with st.spinner("Generating embeddings and saving to Chroma DB..."):
+                    with st.spinner("Generating embeddings..."):
                         st.session_state.vector_store = init_vector_store(chunks)
                         st.success(f"Successfully indexed {len(chunks)} text chunks into Chroma!")
                         st.rerun()
 
         if st.session_state.vector_store is not None:
-            st.caption("✅ Vector Database Status: Active & Loaded")
+            # st.caption(":green[✔ Vector Database Status: Active & Loaded]")
+            st.markdown(
+                '<p style="color: #2ea44f; font-size: 0.85rem; margin: 0;">'
+                '<span style="font-size: 1.5rem; vertical-align: middle; padding-right: 4px;">✔</span> '
+                'Vector Database Status: Active & Loaded'
+                '</p>',
+                unsafe_allow_html=True)
 
         assistant_payload = None
 
@@ -108,13 +114,26 @@ class ChatUI:
             ]
 
         with chat_container:
+            if st.session_state.show_banner and not st.session_state.vector_store:
+                with st.container():
+                    # Use columns to position an "Exit" or "X" button on the right
+                    col1, col2 = st.columns([2, .5])
+                    with col1:
+                        st.info("💡Upload documents below for RAG-based results.")
+                    with col2:
+                        # When clicked, this button triggers a rerun and hides the banner
+                        if st.button("✖️", key="exit_banner"):
+                            st.session_state.show_banner = False
+                            st.rerun()
             self.display_chat_history()
 
             if assistant_payload:
                 with st.chat_message("assistant"):
                     # Fallback if user types without uploading docs
                     if st.session_state.vector_store is None:
-                        st.warning("Please upload and index documents first before asking RAG questions.")
+                        stream = self.collect_assistant_response(assistant_payload)
+                        response = st.write_stream(stream)
+                        self.append_chat_messages("assistant", response)
                     else:
                         llm_client = init_openai_client()
                         retriever = st.session_state.vector_store.as_retriever(search_kwargs={"k": 3})
