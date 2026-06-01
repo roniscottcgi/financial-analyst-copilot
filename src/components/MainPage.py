@@ -3,11 +3,14 @@ import streamlit as st
 from src.components.ChatUI import ChatUI
 from src.components.HistoryPage import HistoryPage
 from src.components.QueryPage import QueryPage
+from src.service.db_service import DBService
+from src.service.llm_service import LLMService
+
 
 class MainPage:
-    def __init__(self):
-        self.llm_service = st.session_state.llm_service
-        self.db_service = st.session_state.db_service
+    def __init__(self, llm_service: LLMService, db_service: DBService):
+        self.llm_service = llm_service
+        self.db_service = db_service
 
     def render(self):
         left_sidebar, main_content, right_sidebar = st.columns([2, 4, 2], border=True)

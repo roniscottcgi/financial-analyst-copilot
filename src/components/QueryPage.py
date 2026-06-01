@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 
 from src.service.db_service import DBService
 from src.service.llm_service import LLMService
@@ -13,8 +14,6 @@ class QueryPage:
         empty_left, center_content, empty_right = st.columns([1, 2, 1])
 
         with center_content:
-            # st.set_page_config(page_title="AI Database Assistant", page_icon="🤖")
-            # st.title("🗄️ AI Database Assistant")
             st.title("AI Database Assistant")
             st.write("This content is perfectly centered within the main area")
 
@@ -38,7 +37,6 @@ class QueryPage:
                 st.subheader("Generated SQL Query")
                 st.code(st.session_state.generated_sql, language="sql")
 
-                # Optional: Display a data preview container below
                 st.subheader("Query Results Preview")
                 st.info("Click 'Execute' to run this query against the database.")
 

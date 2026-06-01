@@ -5,10 +5,11 @@ from langchain_classic.chains.sql_database.query import create_sql_query_chain
 from langchain_community.utilities import SQLDatabase
 from langchain_core.prompts import PromptTemplate, FewShotPromptTemplate
 from langchain_core.runnables import RunnableLambda
+from sqlalchemy import text
 from sqlalchemy.engine import row
 from streamlit.elements.widgets.chat import ChatInputValue
 
-from src.utils.factory import get_database_client
+from src.utils.factory import get_database, get_engine
 
 
 class DBService:
@@ -26,13 +27,21 @@ class DBService:
 
     @staticmethod
     def get_live_examples():
-        if "db_connection" not in st.session_state:
-            ValueError("No database connection provided")
-        db_client, db_connection = get_database_client()
-        cursor = db_connection.cursor()
-        cursor.execute("SELECT user_input, sql_query FROM prompt_examples;")
-        rows = cursor.fetchall()
-        return [{"input": row[0], "query": row[1]} for row in rows]
+        db_engine = get_engine()
+        with db_engine.connect() as conn:
+            rows = conn.execute(text("SELECT user_input, sql_query FROM prompt_examples;"))
+            # rows = conn.fetchall()
+            return [{"input": row[0], "query": row[1]} for row in rows]
+
+    @staticmethod
+    def add_new_example(user_input: str, sql_query: str):
+        try:
+            engine = get_engine()
+            with engine.begin() as conn:
+                conn.execute("INSERT INTO prompt_examples (user_input, sql_query) VALUES (?, ?);", (user_input, sql_query))
+        except Exception as e:
+            error_msg = f"An error occurred while creating your database: {str(e)}"
+            st.error(error_msg)
 
     def create_db_chain(self, llm_client, db_client):
         example_prompt = PromptTemplate(
@@ -106,11 +115,4 @@ class DBService:
             return self.db_client.run(sql)
         except Exception as e:
             error_msg = f"An error occurred while executing your query: {str(e)}"
-
-    def add_new_example(self, user_input: str, sql_query: str):
-        if "db_connection" not in st.session_state:
-            ValueError("No database connection provided")
-        db_client, db_connection = get_database_client()
-        cursor = db_connection.cursor()
-        cursor.execute("INSERT INTO prompt_examples (user_input, sql_query) VALUES (?, ?);", (user_input, sql_query))
-        db_connection.commit()
+            st.error(error_msg)
