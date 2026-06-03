@@ -8,7 +8,6 @@ from langchain_core.documents import Document as LCDocument
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from streamlit.elements.widgets.chat import ChatInputValue
-from langchain_chroma import Chroma
 from src.service.llm_service import LLMService
 from src.utils.factory import init_vector_store, init_openai_client
 from docx import Document

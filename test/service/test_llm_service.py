@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 from src.service.llm_service import LLMService
 
 
-class TestLLMService():
+class TestLLMService:
 
     @patch('openai.OpenAI')
     def test_send_request_to_assistant(self, open_ai_mock):

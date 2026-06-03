@@ -1,16 +1,16 @@
 import re
 
 import streamlit as st
+import pandas as pd
+
 from langchain_classic.chains.sql_database.query import create_sql_query_chain
 from langchain_community.utilities import SQLDatabase
-from langchain_core.prompts import PromptTemplate, FewShotPromptTemplate
+from langchain_core.prompts import PromptTemplate, FewShotPromptTemplate, ChatPromptTemplate
 from langchain_core.runnables import RunnableLambda
 from sqlalchemy import text
-from sqlalchemy.engine import row
 from streamlit.elements.widgets.chat import ChatInputValue
 
-from src.utils.factory import get_database, get_engine
-
+from src.utils.factory import get_engine
 
 class DBService:
     def __init__(self, db_client: SQLDatabase):
@@ -50,13 +50,6 @@ class DBService:
             template="User Input: {input}\nSQL Query: {query}",
             input_variables=["input", "table_info"]
         )
-
-        # example_selector = SemanticSimilarityExampleSelector.from_examples(
-        #     examples,
-        #     OpenAIEmbeddings(),  # Vectorizes the inputs to check relevance
-        #     FAISS,  # In-memory vector store
-        #     k=1  # Number of examples to dynamically inject
-        # )
 
         prefix = """You are an expert SQL assistant. 
         Convert the user query to SQL. 
@@ -101,20 +94,50 @@ class DBService:
             error_msg = f"An error occurred while creating your database: {str(e)}"
             st.error(error_msg)
 
-    def get_response(self, user_query: str | ChatInputValue | None):
+    def get_response(self, user_query: str | ChatInputValue | None, schema_context: str | None = None):
         try:
             if not self.sql_generation_chain:
                 raise ValueError("No database chain provided")
-            return self.sql_generation_chain.invoke({"question": user_query})
+            return self.sql_generation_chain.invoke({
+            "schema_context": schema_context,
+            "question": user_query})
         except Exception as e:
             error_msg = f"An error occurred while processing your query: {str(e)}"
             st.error(error_msg)
 
-    def execute_query(self, sql: str):
+    def execute_query(self, sql: str) -> pd.DataFrame:
         try:
             if not self.db_client:
                 raise ValueError("No database client provided")
-            return self.db_client.run(sql)
+
+            df = pd.read_sql(sql, con=self.db_client._engine)
+            return df
+
         except Exception as e:
             error_msg = f"An error occurred while executing your query: {str(e)}"
             st.error(error_msg)
+            return pd.DataFrame()  # Return empty df on failure so UI doesn't crash
+
+
+    def get_grounding_rules(self, user_query: str | ChatInputValue | None):
+        if "vector_store" not in st.session_state:
+            st.error("No vector store provided")
+        vector_store = st.session_state.vector_store
+        relevant_docs = vector_store.similarity_search(user_query, k=3)
+        schema_context = "\n\n---\n\n".join([doc.page_content for doc in relevant_docs])
+        return schema_context
+
+
+     # if "llm_client" not in st.session_state:
+     #        ValueError("missing llm client in session")
+     #
+     #    llm = st.session_state.llm_client
+     #
+     #    chain = prompt_template | llm
+     #
+     #    response = chain.invoke({
+     #        "schema_context": schema_context,
+     #        "question": user_query})
+     #
+     #    return response.content, relevant_docs
+

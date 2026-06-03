@@ -17,3 +17,5 @@ pdfreader
 langchain-text-splitters
 pypdf
 langchain-chroma
+markdown
+beautifulsoup4

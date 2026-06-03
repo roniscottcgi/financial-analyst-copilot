@@ -3,6 +3,8 @@ import os
 import re
 import sqlite3
 import httpx as httpx
+from sqlalchemy import text
+
 from langchain_community.utilities import SQLDatabase
 
 from langchain_chroma import Chroma
@@ -62,6 +64,16 @@ def get_database():
     except Exception as e:
         logger.error(f"Failed to initialize LangChain DB client: {e}")
         return None
+
+
+def extract_schema_via_sqlite(sql_file_path):
+    db_engine = get_engine()
+    with db_engine.connect() as conn:
+        query = "SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';"
+
+        rows = conn.execute(text(query)).fetchall()
+
+        return {row[0]: row[1] for row in rows}
 
 def init_vector_store(chunks):
     if not chunks:
