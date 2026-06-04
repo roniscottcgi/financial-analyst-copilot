@@ -121,7 +121,7 @@ class DBService:
         except Exception as e:
             error_msg = f"An error occurred while executing your query: {str(e)}"
             st.error(error_msg)
-            return pd.DataFrame()  # Return empty df on failure so UI doesn't crash
+            return pd.DataFrame()  # Return empty df on failure so ui doesn't crash
 
 
     def get_grounding_rules(self, user_query: str | ChatInputValue | None):

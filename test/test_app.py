@@ -5,7 +5,7 @@ from streamlit.testing.v1 import AppTest
 
 class TestApp():
 
-    @patch('src.utils.factory.get_openai_client')
+    @patch('src.ChatUIUtils.py.factory.get_openai_client')
     @patch('src.service.llm_service.LLMService')
     @patch('src.components.MainPage.MainPage')
     def test_app(self, main_page_mock, llm_service_mock, openai_client_mock):

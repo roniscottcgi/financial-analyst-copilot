@@ -5,14 +5,14 @@ from src.utils.factory import init_openai_client
 
 class TestFactory():
 
-    @patch('src.utils.factory.OpenAI')
+    @patch('src.ChatUIUtils.py.factory.OpenAI')
     def test_get_openai_client(self, mock_openai_cls):
         mock_instance = MagicMock()
         mock_openai_cls.return_value = mock_instance
 
         mock_instance.chat.completions.create.return_value = MagicMock()
 
-        # from src.utils.factory import get_openai_client
+        # from src.ChatUIUtils.py.factory import get_openai_client
         result = init_openai_client()
 
         mock_openai_cls.assert_called_once()
