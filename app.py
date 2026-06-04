@@ -35,9 +35,6 @@ if db_service is None:
     st.stop()
 
 build_and_load_vector()
-# db_service.create_db_chain(
-#     llm_client=llm_client,
-#     db_client=db_client)
 
 ui = MainPage(llm_service=llm_service,
               db_service=db_service)
