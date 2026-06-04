@@ -93,6 +93,8 @@ class QueryPage:
 
                 submitted = st.form_submit_button("Generate SQL")
 
+            self.check_for_forbidden_statements(user_query)
+
             if submitted and user_query:
                 with st.spinner("Analyzing database db and generating query..."):
                     schema_context = self.db_service.get_grounding_rules(user_query)
@@ -127,3 +129,10 @@ class QueryPage:
                     st.success("Example saved successfully! Try your query again above.")
                 else:
                     st.warning("Please fill out both fields.")
+
+    def check_for_forbidden_statements(self, user_query: str | None):
+        forbidden_words = ["drop", "delete", "insert", "update", "alter", "truncate", "grant"]
+
+        # Simple lowercase check
+        if any(word in user_query.lower() for word in forbidden_words):
+            raise Exception("Security Error: Destructive query detected.")

@@ -49,7 +49,6 @@ def init_db():
 @st.cache_resource
 def get_engine():
     try:
-        connection = init_db()
         return create_engine(
             f"sqlite:///{DB_FILE}",
             connect_args={"check_same_thread": False})
@@ -75,15 +74,79 @@ def extract_schema_via_sqlite(sql_file_path):
 
         return {row[0]: row[1] for row in rows}
 
-def init_vector_store(chunks):
+@st.cache_resource
+def get_embeddings():
+    return OpenAIEmbeddings(
+        api_key=st.secrets["OPENAI_API_KEY"],
+        http_client=httpx.Client(verify=False)
+    )
+
+# 2. Cache the actual LangChain Vector Store connection
+def get_vector_store(collection_name):
+    # This connects to your Docker container via the persistent HTTP Client
+    return Chroma(
+        collection_name=collection_name,
+        embedding_function=get_embeddings(),
+        host="localhost",
+        port=8000
+    )
+
+@st.cache_resource
+def append_to_vector_store(chunks, ids, collection_name):
     if not chunks:
         return None
 
-    embeddings = OpenAIEmbeddings(
-        api_key=st.secrets["OPENAI_API_KEY"],
-        http_client = httpx.Client(verify=False))
+    # 1. Fetch your cached connection to Docker
+    vector_store = get_vector_store(collection_name)
 
-    vector_store = Chroma.from_documents(
-        documents=chunks,
-        embedding=embeddings)
+    # 2. Prevent duplication: Query existing records inside Docker
+    try:
+        existing_data = vector_store.get(ids=ids)
+        existing_ids = set(existing_data.get("ids", []))
+    except Exception:
+        existing_ids = set()
+
+    # 3. Only keep chunks that do not already exist in Docker
+    new_chunks = []
+    new_ids = []
+    for chunk, chunk_id in zip(chunks, ids):
+        if chunk_id not in existing_ids:
+            new_chunks.append(chunk)
+            new_ids.append(chunk_id)
+
+    # 4. Safely write only unique entries to Docker
+    if new_chunks:
+        vector_store.add_documents(documents=new_chunks, ids=new_ids)
+        print(f"Added {len(new_chunks)} new records to {collection_name}.")
+    else:
+        print(f"All {collection_name} records already exist. Skipping upload.")
+
     return vector_store
+
+
+import pandas as pd
+from sqlalchemy import create_engine
+
+
+def run_read_only_query(sql_query: str) -> str:
+    """Executes an LLM generated SQL query using read-only credentials."""
+    try:
+        # Enforce application-level keyword validation
+        forbidden_keywords = ["drop", "delete", "insert", "update", "alter", "truncate"]
+        if any(kw in sql_query.lower() for kw in forbidden_keywords):
+            return "Error: Security violation. Destructive actions are strictly prohibited."
+
+        # Initialize your database connection (Ensure user has ONLY SELECT permissions)
+        # Example: engine = create_engine("postgresql://ai_chat_user:password@localhost:5432/mydb")
+        engine = get_engine()
+            # create_engine("sqlite:///:memory:")  # Replace with your read-only connection
+
+        # Read query directly into a Pandas DataFrame for easy formatting
+        df = pd.read_sql_query(sql_query, engine)
+
+        # Automatically cap large outputs to prevent context window bloating
+        df_limited = df.head(100)
+
+        return df_limited.to_json(orient="records")
+    except Exception as e:
+        return f"Database Execution Error: {str(e)}"

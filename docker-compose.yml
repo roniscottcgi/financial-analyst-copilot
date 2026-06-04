@@ -1,0 +1,13 @@
+version: '3.9'
+
+services:
+  chromadb:
+    image: chromadb/chroma:latest
+    volumes:
+      - ./chroma_data:/chroma/chroma_data
+    environment:
+      - IS_PERSISTENT=True
+      - ANONYMIZED_TELEMETRY=False
+    ports:
+      - "8000:8000"
+    restart: unless-stopped

@@ -33,11 +33,11 @@ db_service = DBService(db_client=db_client)
 if db_service is None:
     st.error("Failed to initialize database.")
     st.stop()
-db_service.create_db_chain(
-    llm_client=llm_client,
-    db_client=db_client)
 
-st.session_state.vector_store = build_and_load_vector()
+build_and_load_vector()
+# db_service.create_db_chain(
+#     llm_client=llm_client,
+#     db_client=db_client)
 
 ui = MainPage(llm_service=llm_service,
               db_service=db_service)

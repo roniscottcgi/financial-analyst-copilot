@@ -13,7 +13,7 @@ def parse_table_definitions(md_file_path):
     current_test = {}
 
     for element in soup.find_all(recursive=False):
-        if element.name == 'h2':
+        if element.name in ['h1', 'h2', 'h3', 'h4']:
             if current_table:
                 if current_body_elements:
                     table_docs[current_table] = current_body_elements

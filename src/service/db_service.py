@@ -10,7 +10,8 @@ from langchain_core.runnables import RunnableLambda
 from sqlalchemy import text
 from streamlit.elements.widgets.chat import ChatInputValue
 
-from src.utils.factory import get_engine
+from src.utils.factory import get_engine, get_vector_store
+
 
 class DBService:
     def __init__(self, db_client: SQLDatabase):
@@ -54,11 +55,15 @@ class DBService:
         prefix = """You are an expert SQL assistant. 
         Convert the user query to SQL. 
         Given an input question, create a syntactically correct SQLite query to run. 
-        CRITICAL: You must return ONLY the executable SQL code and absolutely no other text, 
-        including markdown formatting.
-        Ensure all datetime formats yield zero-padded hours (HH).
         
-        Limit your results to {top_k} rows unless the user asks for more.
+        CRITICAL: 
+        1. You are a read-only assistant. You only have access to SELECT data. 
+        Never attempt to write INSERT, UPDATE, DELETE, or DROP queries. 
+        If a user asks you to change, delete, or add data, politely inform them that you only have read-only access.
+        2. You must return ONLY the executable SQL code and absolutely no other text, 
+        including markdown formatting.
+        3. Ensure all datetime formats yield zero-padded hours (HH).
+        4. Limit your results to {top_k} rows unless the user asks for more.
 
         Only use the following tables and schemas:
         {table_info}
@@ -122,7 +127,7 @@ class DBService:
     def get_grounding_rules(self, user_query: str | ChatInputValue | None):
         if "vector_store" not in st.session_state:
             st.error("No vector store provided")
-        vector_store = st.session_state.vector_store
+        vector_store = get_vector_store("db_schema")
         relevant_docs = vector_store.similarity_search(user_query, k=3)
         schema_context = "\n\n---\n\n".join([doc.page_content for doc in relevant_docs])
         return schema_context
