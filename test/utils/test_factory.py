@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch, MagicMock
 
-from src.utils.factory import init_openai_client
+from src.utils.factory import get_openai_client
 
 class TestFactory():
 
@@ -13,7 +13,7 @@ class TestFactory():
         mock_instance.chat.completions.create.return_value = MagicMock()
 
         # from src.ChatUIUtils.py.factory import get_openai_client
-        result = init_openai_client()
+        result = get_openai_client()
 
         mock_openai_cls.assert_called_once()
         assert result == mock_instance

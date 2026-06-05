@@ -16,7 +16,7 @@ DB_FILE = 'db/sample.db'
 DB_SCHEMA = 'db/schema.sql'
 
 @st.cache_resource
-def init_openai_client():
+def get_openai_client():
     try:
         model = st.session_state["openai_model"]
         return ChatOpenAI(
@@ -45,6 +45,8 @@ def init_db():
         except Exception as e:
             logger.error(e)
             return None
+    return None
+
 
 @st.cache_resource
 def get_engine():

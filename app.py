@@ -3,7 +3,7 @@ import streamlit as st
 from src.components.MainPage import MainPage
 from src.service import db_service
 from src.service.db_service import DBService
-from src.utils.factory import init_openai_client, get_database, init_db
+from src.utils.factory import get_openai_client, get_database, init_db
 from src.utils.ingest import build_and_load_vector
 from src.service.llm_service import LLMService
 
@@ -15,7 +15,7 @@ if "openai_model" not in st.session_state:
 if "vector_store" not in st.session_state:
     st.session_state["vector_store"] = None
 
-llm_client = init_openai_client()
+llm_client = get_openai_client()
 if llm_client is None:
     st.error("Failed to initialize openai client.")
     st.stop()

@@ -4,7 +4,7 @@ from langchain_core.tools import tool
 from components.ui.ChatUIUtils import toggle_container, display_upload_prompt, append_chat_messages, \
     display_chat_history
 from src.service.llm_service import LLMService
-from src.utils.factory import init_openai_client, run_read_only_query
+from src.utils.factory import get_openai_client, run_read_only_query
 
 from utils.vector import append_langchain_messages, collect_context, index_uploaded_files
 
@@ -25,8 +25,6 @@ class ChatUI:
             st.session_state.indexed_files = set()
         if "query_history" not in st.session_state:
             st.session_state.query_history = []
-
-        # Initialize the persistence state tracking
         if "current_executed_sql" not in st.session_state:
             st.session_state.current_executed_sql = None
         if "persist_status_for_rerun" not in st.session_state:
@@ -86,9 +84,6 @@ class ChatUI:
                 with st.chat_message("assistant"):
                         doc_context, schema_context, user_docs_results, db_schema_results = collect_context(new_user_input)
 
-                        print(f"Docs used: {doc_context}")
-                        print(f"Schema used: {schema_context}")
-
                         @tool
                         def run_database_query(sql_query: str) -> str:
                             """Executes a valid SQL SELECT query against the underlying database tables to extract live figures and rows."""
@@ -96,7 +91,7 @@ class ChatUI:
 
                         tools = [run_database_query]
 
-                        llm_client = init_openai_client()
+                        llm_client = get_openai_client()
                         llm_with_tools = llm_client.bind_tools(tools)
 
                         langchain_messages = append_langchain_messages(doc_context, new_user_input, schema_context)
@@ -123,18 +118,6 @@ class ChatUI:
                                         live_db_data = run_database_query.invoke(tool_call)
                                         status.update(label="Query complete! Synthesizing data...", state="complete")
 
-                                    # Append to history state (including the SQL query to render later)
-                                    if doc_context and schema_context and new_user_input and query_to_run:
-                                        interation = {
-                                            "doc_context": doc_context,
-                                            "schema_context": schema_context,
-                                            "user_query": new_user_input,
-                                            "db_schema_results": db_schema_results,
-                                            "user_docs_results": user_docs_results,
-                                            "query_to_run": query_to_run  # Saved for history and UI rendering
-                                        }
-                                        st.session_state.query_history.append(interation)
-
                                     langchain_messages.append(live_db_data)
 
                             # Second Inference Pass: Stream the final answer back to the UI
@@ -150,6 +133,19 @@ class ChatUI:
                             # FIX 2: Tell the next run cycle to explicitly draw the container using our current SQL code
                             if st.session_state.current_executed_sql:
                                 st.session_state.persist_status_for_rerun = True
+
+                            # Append to history state (including the SQL query to render later)
+                            if doc_context and schema_context and new_user_input and query_to_run and full_response:
+                                interation = {
+                                    "doc_context": doc_context,
+                                    "schema_context": schema_context,
+                                    "user_query": new_user_input,
+                                    "db_schema_results": db_schema_results,
+                                    "user_docs_results": user_docs_results,
+                                    "query_to_run": query_to_run,
+                                    "assistant_response": full_response,
+                                }
+                                st.session_state.query_history.append(interation)
 
                             # Sync the other history component across the app seamlessly
                             st.rerun()
