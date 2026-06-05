@@ -26,6 +26,12 @@ class ChatUI:
         if "query_history" not in st.session_state:
             st.session_state.query_history = []
 
+        # Initialize the persistence state tracking
+        if "current_executed_sql" not in st.session_state:
+            st.session_state.current_executed_sql = None
+        if "persist_status_for_rerun" not in st.session_state:
+            st.session_state.persist_status_for_rerun = False
+
         chat_toggle = toggle_container()
 
         if not chat_toggle:
@@ -67,14 +73,17 @@ class ChatUI:
 
             display_chat_history()
 
+            # FIX 1: Move the state recovery block INSIDE the chat container layout.
+            # If a rerun just occurred, draw the completed static status box right above the answer.
+            if st.session_state.persist_status_for_rerun and st.session_state.current_executed_sql:
+                with st.status("🤖 Agent executed SQL query", state="complete", expanded=False):
+                    st.code(st.session_state.current_executed_sql, language="sql")
+                # Immediately reset the gatekeeper so it won't persist across future new chat submissions
+                st.session_state.persist_status_for_rerun = False
+                st.session_state.current_executed_sql = None
+
             if assistant_payload:
                 with st.chat_message("assistant"):
-                    # if uploaded_files is None:
-                    #     pass
-                    #     # stream = collect_assistant_response(assistant_payload)
-                    #     # response = st.write_stream(stream)
-                    #     # append_chat_messages("assistant", response)
-                    # else:
                         doc_context, schema_context, user_docs_results, db_schema_results = collect_context(new_user_input)
 
                         print(f"Docs used: {doc_context}")
@@ -105,14 +114,16 @@ class ChatUI:
                                 if tool_call["name"] == "run_database_query":
                                     query_to_run = tool_call["args"]["sql_query"]
 
-                                    # Show a status banner in the Streamlit ui so the user knows what query is running
+                                    # Set the tracking strings
+                                    st.session_state.current_executed_sql = query_to_run
+
+                                    # Show a temporary visual status banner during the heavy network call
                                     with st.status(f"🤖 Agent executing SQL query...", expanded=False) as status:
                                         st.code(query_to_run, language="sql")
-                                        # Trigger our backend database retrieval function
-
                                         live_db_data = run_database_query.invoke(tool_call)
                                         status.update(label="Query complete! Synthesizing data...", state="complete")
 
+                                    # Append to history state (including the SQL query to render later)
                                     if doc_context and schema_context and new_user_input and query_to_run:
                                         interation = {
                                             "doc_context": doc_context,
@@ -120,23 +131,25 @@ class ChatUI:
                                             "user_query": new_user_input,
                                             "db_schema_results": db_schema_results,
                                             "user_docs_results": user_docs_results,
-                                            "query_to_run": query_to_run
+                                            "query_to_run": query_to_run  # Saved for history and UI rendering
                                         }
                                         st.session_state.query_history.append(interation)
 
-                                    # Append raw rows return packet back to model memory context
                                     langchain_messages.append(live_db_data)
 
-                            # 6. Second Inference Pass: Stream the final answer back to the ui using the fresh rows data
+                            # Second Inference Pass: Stream the final answer back to the UI
                             full_response = ""
                             for chunk in llm_client.stream(langchain_messages):
                                 if chunk.content:
                                     full_response += chunk.content
                                     placeholder.markdown(full_response)
 
+                            # Append final text response to chat logs
                             append_chat_messages("assistant", full_response)
-                            # st.rerun()
-                        else:
-                            # Standard Fallback: The model answered directly without needing live data tools
-                            placeholder.markdown(ai_msg.content)
-                            append_chat_messages("assistant", ai_msg.content)
+
+                            # FIX 2: Tell the next run cycle to explicitly draw the container using our current SQL code
+                            if st.session_state.current_executed_sql:
+                                st.session_state.persist_status_for_rerun = True
+
+                            # Sync the other history component across the app seamlessly
+                            st.rerun()
