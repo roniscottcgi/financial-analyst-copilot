@@ -23,6 +23,8 @@ class ChatUI:
             st.session_state.messages = []
         if "indexed_files" not in st.session_state:
             st.session_state.indexed_files = set()
+        if "query_history" not in st.session_state:
+            st.session_state.query_history = []
 
         chat_toggle = toggle_container()
 
@@ -67,13 +69,16 @@ class ChatUI:
 
             if assistant_payload:
                 with st.chat_message("assistant"):
-                    if uploaded_files is None:
-                        pass
-                        # stream = collect_assistant_response(assistant_payload)
-                        # response = st.write_stream(stream)
-                        # append_chat_messages("assistant", response)
-                    else:
-                        doc_context, schema_context = collect_context(new_user_input)
+                    # if uploaded_files is None:
+                    #     pass
+                    #     # stream = collect_assistant_response(assistant_payload)
+                    #     # response = st.write_stream(stream)
+                    #     # append_chat_messages("assistant", response)
+                    # else:
+                        doc_context, schema_context, user_docs_results, db_schema_results = collect_context(new_user_input)
+
+                        print(f"Docs used: {doc_context}")
+                        print(f"Schema used: {schema_context}")
 
                         @tool
                         def run_database_query(sql_query: str) -> str:
@@ -104,8 +109,20 @@ class ChatUI:
                                     with st.status(f"🤖 Agent executing SQL query...", expanded=False) as status:
                                         st.code(query_to_run, language="sql")
                                         # Trigger our backend database retrieval function
+
                                         live_db_data = run_database_query.invoke(tool_call)
                                         status.update(label="Query complete! Synthesizing data...", state="complete")
+
+                                    if doc_context and schema_context and new_user_input and query_to_run:
+                                        interation = {
+                                            "doc_context": doc_context,
+                                            "schema_context": schema_context,
+                                            "user_query": new_user_input,
+                                            "db_schema_results": db_schema_results,
+                                            "user_docs_results": user_docs_results,
+                                            "query_to_run": query_to_run
+                                        }
+                                        st.session_state.query_history.append(interation)
 
                                     # Append raw rows return packet back to model memory context
                                     langchain_messages.append(live_db_data)
@@ -118,7 +135,7 @@ class ChatUI:
                                     placeholder.markdown(full_response)
 
                             append_chat_messages("assistant", full_response)
-
+                            # st.rerun()
                         else:
                             # Standard Fallback: The model answered directly without needing live data tools
                             placeholder.markdown(ai_msg.content)

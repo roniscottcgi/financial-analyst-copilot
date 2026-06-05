@@ -1,3 +1,5 @@
+from typing import Any, LiteralString
+
 import streamlit as st
 from langchain_core.documents import Document as LCDocument
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -33,7 +35,10 @@ def index_uploaded_files(uploaded_files: list[UploadedFile] | UploadedFile):
             doc = LCDocument(page_content=text, metadata={"source": uploaded_file.name})
             all_lc_docs.append(doc)
         if all_lc_docs:
-            text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=1000,
+                chunk_overlap=200,
+                separators=["\n\n", "\n", ". ", "! ", "? ", " ", ""])
             chunks = text_splitter.split_documents(all_lc_docs)
             doc_id = f"{i}:{uploaded_file.name}"
             stable_ids.append(doc_id)
@@ -45,6 +50,16 @@ def index_uploaded_files(uploaded_files: list[UploadedFile] | UploadedFile):
             collection_name="user_documents")
         return vector_store, chunks
 
+def collect_context( new_user_input: str | None | ChatInputValue) -> tuple[LiteralString, LiteralString, Any, Any]:
+    user_docs_store = get_vector_store("user_documents")
+    db_schema_store = get_vector_store("db_schema")
+
+    user_docs_results = user_docs_store.similarity_search_with_score(new_user_input, k=3)
+    db_schema_results = db_schema_store.similarity_search_with_score(new_user_input, k=4)
+
+    schema_context = "\n".join([doc.page_content for doc, _ in db_schema_results])
+    doc_context = "\n".join([doc.page_content for doc, _ in user_docs_results])
+    return doc_context, schema_context, user_docs_results, db_schema_results
 
 def append_langchain_messages(doc_context: str, new_user_input: str | None | ChatInputValue, schema_context: str) -> list[SystemMessage]:
     system_prompt = (
@@ -71,14 +86,3 @@ def append_langchain_messages(doc_context: str, new_user_input: str | None | Cha
     # Add current user prompt
     langchain_messages.append(HumanMessage(content=new_user_input))
     return langchain_messages
-
-def collect_context( new_user_input: str | None | ChatInputValue) -> tuple[str, str]:
-    user_docs_store = get_vector_store("user_documents")
-    db_schema_store = get_vector_store("db_schema")
-
-    user_docs_results = user_docs_store.similarity_search_with_score(new_user_input, k=3)
-    db_schema_results = db_schema_store.similarity_search_with_score(new_user_input, k=4)
-
-    schema_context = "\n".join([doc.page_content for doc, _ in db_schema_results])
-    doc_context = "\n".join([doc.page_content for doc, _ in user_docs_results])
-    return doc_context, schema_context

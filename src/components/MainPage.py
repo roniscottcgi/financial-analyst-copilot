@@ -13,16 +13,16 @@ class MainPage:
         self.db_service = db_service
 
     def render(self):
-        left_sidebar, main_content, right_sidebar = st.columns([2, 4, 2], border=True)
+        left_sidebar, main_content, right_sidebar = st.columns([3, 4, 3], border=True)
 
         with left_sidebar:
             left_sidebar_ui = HistoryPage("source for now")
             left_sidebar_ui.render()
 
         with main_content:
-            main_content_ui = QueryPage(llm_service=self.llm_service, db_service=self.db_service)
-            main_content_ui.render()
-
-        with right_sidebar:
             right_sidebar_ui = ChatUI(llm_service=self.llm_service)
             right_sidebar_ui.render()
+
+        with right_sidebar:
+            main_content_ui = QueryPage(llm_service=self.llm_service, db_service=self.db_service)
+            main_content_ui.render()
