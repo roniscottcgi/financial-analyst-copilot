@@ -84,7 +84,7 @@ def get_embeddings():
     )
 
 # 2. Cache the actual LangChain Vector Store connection
-def get_vector_store(collection_name):
+def get_vector_store_by_collection(collection_name):
     # This connects to your Docker container via the persistent HTTP Client
     return Chroma(
         collection_name=collection_name,
@@ -99,7 +99,7 @@ def append_to_vector_store(chunks, ids, collection_name):
         return None
 
     # 1. Fetch your cached connection to Docker
-    vector_store = get_vector_store(collection_name)
+    vector_store = get_vector_store_by_collection(collection_name)
 
     # 2. Prevent duplication: Query existing records inside Docker
     try:

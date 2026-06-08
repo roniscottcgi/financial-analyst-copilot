@@ -10,7 +10,7 @@ from langchain_core.runnables import RunnableLambda
 from sqlalchemy import text
 from streamlit.elements.widgets.chat import ChatInputValue
 
-from src.utils.factory import get_engine, get_vector_store
+from src.utils.factory import get_engine, get_vector_store_by_collection
 
 
 class DBService:
@@ -127,7 +127,7 @@ class DBService:
     def get_grounding_rules(self, user_query: str | ChatInputValue | None):
         if "vector_store" not in st.session_state:
             st.error("No vector store provided")
-        vector_store = get_vector_store("db_schema")
+        vector_store = get_vector_store_by_collection("db_schema")
         relevant_docs = vector_store.similarity_search(user_query, k=3)
         schema_context = "\n\n---\n\n".join([doc.page_content for doc in relevant_docs])
         return schema_context

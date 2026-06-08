@@ -6,7 +6,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 from streamlit.elements.widgets.chat import ChatInputValue
 
-from utils.factory import append_to_vector_store, get_vector_store
+from utils.factory import append_to_vector_store, get_vector_store_by_collection
 from langchain_core.messages import SystemMessage
 from docx import Document
 from pypdf import PdfReader
@@ -21,7 +21,7 @@ def extract_text(uploaded_file):
         return "\n".join([p.text for p in doc.paragraphs])
     return ""
 
-def index_uploaded_files(uploaded_files: list[UploadedFile] | UploadedFile):
+def index_uploaded_files_to_vector_store(uploaded_files: list[UploadedFile] | UploadedFile):
     all_lc_docs = []
     chunks = []
     stable_ids = []
@@ -50,19 +50,17 @@ def index_uploaded_files(uploaded_files: list[UploadedFile] | UploadedFile):
             collection_name="user_documents")
         return vector_store, chunks
 
-def collect_context( new_user_input: str | None | ChatInputValue) -> tuple[LiteralString, LiteralString, Any, Any]:
-    user_docs_store = get_vector_store("user_documents")
-    db_schema_store = get_vector_store("db_schema")
+def collect_context_from_vector_store(collection: str, query: str | None | ChatInputValue) -> tuple[
+    LiteralString, Any]:
+    store = get_vector_store_by_collection(collection)
 
-    user_docs_results = user_docs_store.similarity_search_with_score(new_user_input, k=3)
-    db_schema_results = db_schema_store.similarity_search_with_score(new_user_input, k=4)
+    results = store.similarity_search_with_score(query, k=3)
 
-    schema_context = "\n".join([doc.page_content for doc, _ in db_schema_results])
-    doc_context = "\n".join([doc.page_content for doc, _ in user_docs_results])
-    return doc_context, schema_context, user_docs_results, db_schema_results
+    context = "\n".join([doc.page_content for doc, _ in results])
+    return context, results
 
-def append_langchain_messages(doc_context: str, new_user_input: str | None | ChatInputValue, schema_context: str) -> list[SystemMessage]:
-    system_prompt = (
+def form_prompt(doc_context: str, schema_context: str) -> str:
+    return (
         "You are a helpful Financial Assistant with read-only access to a database schema and user documents.\n\n"
         f"--- AVAILABLE DATABASE SCHEMA MATCHES ---\n{schema_context}\n\n"
         f"--- USER DOCUMENT CONTENT ---\n{doc_context}\n\n"
@@ -71,18 +69,8 @@ def append_langchain_messages(doc_context: str, new_user_input: str | None | Cha
         "and invoke the 'run_database_query' tool.\n"
         "2. Do not write example code or say you lack access. Use your tool to grab data.\n"
         "3. If the document content contains the direct answer, answer from the documents.\n"
-        "4. Once tool execution data is returned to you, synthesize a clear response for the user."
+        "4. Once tool execution data is returned to you, synthesize a clear response for the user.\n"
+        "5. CRITICAL: If the user's request is completely unrelated to finance, business, or the provided data (e.g., asking about the weather, personal advice, or general chit-chat), "
+        "DO NOT invoke any tools. Instead, politely inform the user that you are a financial assistant and answer their question using your general knowledge if appropriate, or ask them to return to a financial topic.\n"
+        "Ask for additional clarity when needed."
     )
-
-    # Re-map chat history to official LangChain message classes
-    from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage
-
-    langchain_messages = [SystemMessage(content=system_prompt)]
-    for m in st.session_state.messages[:-1]:  # Append previous conversational history
-        if m["role"] == "user":
-            langchain_messages.append(HumanMessage(content=m["content"]))
-        else:
-            langchain_messages.append(AIMessage(content=m["content"]))
-    # Add current user prompt
-    langchain_messages.append(HumanMessage(content=new_user_input))
-    return langchain_messages

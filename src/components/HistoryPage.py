@@ -33,9 +33,11 @@ class HistoryPage:
             document_data = []
             document_scores = []
 
-            self.append_data_data(db_schema_references, table_data, table_scores)
+            if db_schema_references:
+                self.append_data_data(db_schema_references, table_data, table_scores)
 
-            self.append_doc_data(document_data, document_references, document_scores)
+            if document_references:
+                self.append_doc_data(document_data, document_references, document_scores)
 
             current_table_data = {
                 "Table": table_data,
@@ -113,7 +115,10 @@ class HistoryPage:
                     else:
                         st.caption("No documents used in this run.")
                 with tab3:
-                    st.code(sql_query, language="sql")
+                    if sql_query:
+                        st.code(sql_query, language="sql")
+                    else:
+                        st.caption("No sql query used in this run.")
                 with tab4:
                     st.markdown(response)
 
