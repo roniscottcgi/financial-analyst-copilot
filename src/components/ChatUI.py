@@ -34,10 +34,16 @@ class ChatUI:
             type=["docx", "pdf"],
             accept_multiple_files=True)
 
-        if uploaded_files:
+        if not isinstance(uploaded_files, list):
+            uploaded_files = [uploaded_files]
+
+        if len(uploaded_files) != st.session_state.uploaded_files_size:
             with st.spinner("Adding files to store..."):
-                self.vector_store, chunks = index_uploaded_files_to_vector_store(uploaded_files)
-                st.success(f"Successfully indexed {len(chunks)} text chunks into Chroma!")
+                vector_store, chunks = index_uploaded_files_to_vector_store(uploaded_files)
+                st.session_state.vector_store = vector_store
+                st.session_state.uploaded_files_size = len(chunks)
+                if chunks and len(chunks) > 0:
+                    st.success(f"Successfully indexed {len(chunks)} text chunks into Chroma!")
 
         if self.vector_store is not None:
             st.markdown(
@@ -173,20 +179,20 @@ class ChatUI:
 
                             # CASE 1: Processing text matches from files
                             if tool_call["name"] == "search_uploaded_documents":
-                                with st.status("🔍 Extracting text fields from files...",
-                                               expanded=False) as status:
-                                    context_raw = search_uploaded_documents.invoke(tool_call)
-                                    status.update(label="Document content loaded!", state="complete")
+                                # with st.status("🔍 Extracting text fields from files...",
+                                #                expanded=False) as status:
+                                context_raw = search_uploaded_documents.invoke(tool_call)
+                                    # status.update(label="Document content loaded!", state="complete")
 
                                 langchain_messages.append(
                                     ToolMessage(content=str(context_raw), tool_call_id=tool_call["id"]))
 
                             # CASE 2: Processing layout contexts from schema
                             elif tool_call["name"] == "fetch_database_schema":
-                                with st.status("📊 Loading database schema definitions...",
-                                               expanded=False) as status:
-                                    context_raw = fetch_database_schema.invoke(tool_call)
-                                    status.update(label="Schema layouts loaded!", state="complete")
+                                # with st.status("📊 Loading database schema definitions...",
+                                #                expanded=False) as status:
+                                context_raw = fetch_database_schema.invoke(tool_call)
+                                    # status.update(label="Schema layouts loaded!", state="complete")
 
                                 langchain_messages.append(
                                     ToolMessage(content=str(context_raw), tool_call_id=tool_call["id"]))
@@ -212,7 +218,7 @@ class ChatUI:
                                     ToolMessage(content=str(context_raw), tool_call_id=tool_call["id"]))
 
                         # Step D: Once all tool calls for this turn have responses, invoke the model for its next step
-                        with st.spinner("Evaluating database response..."):
+                        with st.spinner("Evaluating response..."):
                             ai_msg = llm_with_tools.invoke(langchain_messages)
 
                     # 1. Capture the full text that was already generated inside the loop
@@ -250,13 +256,18 @@ class ChatUI:
 
                     st.rerun()
 
-    def init_session_state(self):
+    @staticmethod
+    def init_session_state():
+        if "vector_store" not in st.session_state:
+            st.session_state.vector_store = None
         if "show_banner" not in st.session_state:
             st.session_state.show_banner = True
         if "messages" not in st.session_state:
             st.session_state.messages = []
         if "indexed_files" not in st.session_state:
             st.session_state.indexed_files = set()
+        if "uploaded_files_size" not in st.session_state:
+            st.session_state.uploaded_files_size = 0
         if "query_history" not in st.session_state:
             st.session_state.query_history = []
         if "current_executed_sql" not in st.session_state:

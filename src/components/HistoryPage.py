@@ -30,18 +30,18 @@ class HistoryPage:
 
             table_data = []
             table_scores = []
+            query_rules = []
             document_data = []
             document_scores = []
 
             if db_schema_references:
-                self.append_data_data(db_schema_references, table_data, table_scores)
+                self.append_db_data(db_schema_references, table_data, table_scores)
 
             if document_references:
                 self.append_doc_data(document_data, document_references, document_scores)
 
             current_table_data = {
                 "Table": table_data,
-                "Query": query_reference,
                 "Score": table_scores,
             }
 
@@ -55,6 +55,7 @@ class HistoryPage:
                 "assistant_response": interaction.get("assistant_response", "N/A"),
                 "table_history": current_table_data,
                 "doc_history": current_doc_data,
+                "sql_query": query_reference
             })
 
         for index, data in enumerate(history):
@@ -62,8 +63,9 @@ class HistoryPage:
             response = data.get("assistant_response", "something went wrong!")
 
             table_data = data.get("table_history", {})
-            sql_query = table_data.get("Query", "")
             doc_data = data.get("doc_history", {})
+
+            sql_query = data.get("sql_query", "")
 
             table_df = pd.DataFrame(table_data)
             doc_df = pd.DataFrame(doc_data)
@@ -80,7 +82,7 @@ class HistoryPage:
                 st.caption(f"**Query:** {query}")
 
                 tab1, tab2, tab3, tab4 = st.tabs([
-                    ":green[:material/table_chart:] Tables",
+                    ":green[:material/table_chart:] Tables and Rules",
                     ":orange[:material/description:] Docs",
                     ":violet[:material/database:] SQL Query",
                     ":red[:material/forum:] Response"
@@ -89,7 +91,7 @@ class HistoryPage:
                 with tab1:
                     if not table_df.empty:
                         st.dataframe(
-                            table_df[["Table", "Score"]],  # Keep it tight for small spaces
+                            data=table_df[["Table", "Score"]],  # Keep it tight for small spaces
                             column_config={
                                 "Table": st.column_config.TextColumn("Table", width="medium"),
                                 "Score": st.column_config.ProgressColumn("Score", format="%.2f", min_value=0.0,
@@ -121,18 +123,22 @@ class HistoryPage:
                         st.caption("No sql query used in this run.")
                 with tab4:
                     st.markdown(response)
-
-    def append_doc_data(self, document_data: list[Any], document_references, document_scores: list[Any]):
+    @staticmethod
+    def append_doc_data(document_data: list[Any], document_references, document_scores: list[Any]):
         for doc_reference in document_references:
             document = doc_reference[0]
             score = doc_reference[1]
             document_data.append(document.metadata.get("source", "N/A"))
             document_scores.append(score)
 
-    def append_data_data(self, db_schema_references, table_data: list[Any], table_scores: list[Any]):
+    @staticmethod
+    def append_db_data(db_schema_references, table_data: list[Any], table_scores: list[Any]):
         for db_schema_reference in db_schema_references:
             document = db_schema_reference[0]
             score = db_schema_reference[1]
+
+            if document.id == "global_relationship_matrix":
+                continue
             table_data.append(document.metadata.get("table_name", "N/A"))
             table_scores.append(score)
 

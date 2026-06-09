@@ -1,54 +1,117 @@
+import io
+
+import docx
+import fitz
+import pymupdf4llm
+import streamlit as st
 from typing import Any, LiteralString
 
-import streamlit as st
-from langchain_core.documents import Document as LCDocument
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 from streamlit.elements.widgets.chat import ChatInputValue
+from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
 
 from utils.factory import append_to_vector_store, get_vector_store_by_collection
-from langchain_core.messages import SystemMessage
-from docx import Document
-from pypdf import PdfReader
 
 def extract_text(uploaded_file):
-    name = uploaded_file.name
-    if name.endswith('.pdf'):
-        pdf_reader = PdfReader(uploaded_file)
-        return "\n".join([page.extract_text() for page in pdf_reader.pages if page.extract_text()])
-    elif name.endswith('.docx'):
-        doc = Document(uploaded_file)
-        return "\n".join([p.text for p in doc.paragraphs])
-    return ""
+    """
+    100% offline document to markdown parser using pymupdf4llm and python-docx.
+    """
+    try:
+        file_bytes = uploaded_file.read()
+        uploaded_file.seek(0)
+
+        # --- Handle PDF files ---
+        if uploaded_file.name.lower().endswith('.pdf'):
+            # Open the file bytes via fitz first to handle in-memory buffer safely
+            doc = fitz.open(stream=io.BytesIO(file_bytes), filetype="pdf")
+
+            # Pass the parsed fitz document into the markdown converter
+            markdown_text = pymupdf4llm.to_markdown(doc)
+            return markdown_text
+
+        # --- Handle DOCX files ---
+        elif uploaded_file.name.lower().endswith('.docx'):
+            doc = docx.Document(io.BytesIO(file_bytes))
+            md_lines = []
+            for paragraph in doc.paragraphs:
+                style = paragraph.style.name
+                if style.startswith('Heading 1'):
+                    md_lines.append(f"# {paragraph.text}")
+                elif style.startswith('Heading 2'):
+                    md_lines.append(f"## {paragraph.text}")
+                elif style.startswith('Heading 3'):
+                    md_lines.append(f"### {paragraph.text}")
+                else:
+                    md_lines.append(paragraph.text)
+            return "\n\n".join(md_lines)
+
+        else:
+            st.error(f"Unsupported file format: {uploaded_file.name}")
+            return ""
+
+    except Exception as e:
+        st.error(f"Failed to parse {uploaded_file.name}: {e}")
+        return ""
 
 def index_uploaded_files_to_vector_store(uploaded_files: list[UploadedFile] | UploadedFile):
-    all_lc_docs = []
-    chunks = []
-    stable_ids = []
+    if not isinstance(uploaded_files, list):
+        uploaded_files = [uploaded_files]
+
+    all_chunks = []
+    all_stable_ids = []
+
+    # Identify structural headings extracted from the PDF/DOCX
+    headers_to_split_on = [
+        ("#", "Header_1"),
+        ("##", "Header_2"),
+        ("###", "Header_3"),
+    ]
+    markdown_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_to_split_on)
+
+    # Sub-split oversized sections so they comfortably fit your vector tokens
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=2000,
+        chunk_overlap=400,
+        separators=["\n\n", "\n", ". ", " ", ""]
+    )
 
     for i, uploaded_file in enumerate(uploaded_files):
         if uploaded_file.name in st.session_state.indexed_files:
             continue
 
+        # Extract text into Markdown string format
         text = extract_text(uploaded_file)
-        if text.strip():
-            doc = LCDocument(page_content=text, metadata={"source": uploaded_file.name})
-            all_lc_docs.append(doc)
-        if all_lc_docs:
-            text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=1000,
-                chunk_overlap=200,
-                separators=["\n\n", "\n", ". ", "! ", "? ", " ", ""])
-            chunks = text_splitter.split_documents(all_lc_docs)
-            doc_id = f"{i}:{uploaded_file.name}"
-            stable_ids.append(doc_id)
+        if not text.strip():
+            continue
+
+        # Split structurally by the headings extracted from your PDF/DOCX
+        sections = markdown_splitter.split_text(text)
+
+        # Guard rail: ensure giant document sections are safely divided
+        file_chunks = text_splitter.split_documents(sections)
+
+        # Inject original file name metadata back into the final chunks
+        for chunk in file_chunks:
+            chunk.metadata["source"] = uploaded_file.name
+
+        # Create stable chunk IDs
+        for chunk_idx, chunk in enumerate(file_chunks):
+            chunk_id = f"{uploaded_file.name}_{i}_{chunk_idx}"
+            all_stable_ids.append(chunk_id)
+            all_chunks.append(chunk)
+
         st.session_state.indexed_files.add(uploaded_file.name)
 
+    if all_chunks:
         vector_store = append_to_vector_store(
-            chunks=chunks,
-            ids=stable_ids,
-            collection_name="user_documents")
-        return vector_store, chunks
+            chunks=all_chunks,
+            ids=all_stable_ids,
+            collection_name="user_documents"
+        )
+        return vector_store, all_chunks
+
+    return None, []
+
 
 def collect_context_from_vector_store(collection: str, query: str | None | ChatInputValue) -> tuple[
     LiteralString, Any]:

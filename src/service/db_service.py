@@ -59,7 +59,7 @@ class DBService:
         CRITICAL: 
         1. You are a read-only assistant. You only have access to SELECT data. 
         Never attempt to write INSERT, UPDATE, DELETE, or DROP queries. 
-        If a user asks you to change, delete, or add data, politely inform them that you only have read-only access.
+        If a user asks you to change, delete, or add data, politely inform them that you only have read-only access in plain-text only (not SQL commands).
         2. You must return ONLY the executable SQL code and absolutely no other text, 
         including markdown formatting.
         3. Ensure all datetime formats yield zero-padded hours (HH).
@@ -114,7 +114,13 @@ class DBService:
         try:
             if not self.db_client:
                 raise ValueError("No database client provided")
-
+            forbidden_keywords = ["drop", "delete", "insert", "update", "alter", "truncate"]
+            if any(kw in sql.lower() for kw in forbidden_keywords):
+                error_df = pd.DataFrame({
+                    "Status": ["Error"],
+                    "Error_Message": [str("Error: Security violation. Destructive actions are strictly prohibited.")]
+                })
+                return error_df
             df = pd.read_sql(sql, con=self.db_client._engine)
             return df
 
@@ -124,7 +130,7 @@ class DBService:
             return pd.DataFrame()  # Return empty df on failure so ui doesn't crash
 
 
-    def get_grounding_rules(self, user_query: str | ChatInputValue | None):
+    def get_grounding_context(self, user_query: str | ChatInputValue | None):
         if "vector_store" not in st.session_state:
             st.error("No vector store provided")
         vector_store = get_vector_store_by_collection("db_schema")

@@ -34,6 +34,9 @@ if db_service is None:
     st.error("Failed to initialize database.")
     st.stop()
 
+db_service.create_db_chain(llm_client=llm_client,
+                           db_client=db_client)
+
 build_and_load_vector()
 
 ui = MainPage(llm_service=llm_service,

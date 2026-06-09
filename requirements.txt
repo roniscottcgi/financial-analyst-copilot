@@ -19,3 +19,4 @@ pypdf
 langchain-chroma
 markdown
 beautifulsoup4
+docling
