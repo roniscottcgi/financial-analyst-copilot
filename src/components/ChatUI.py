@@ -38,12 +38,28 @@ class ChatUI:
             uploaded_files = [uploaded_files]
 
         if len(uploaded_files) != st.session_state.uploaded_files_size:
-            with st.spinner("Adding files to store..."):
-                vector_store, chunks = index_uploaded_files_to_vector_store(uploaded_files)
-                st.session_state.vector_store = vector_store
-                st.session_state.uploaded_files_size = len(chunks)
-                if chunks and len(chunks) > 0:
-                    st.success(f"Successfully indexed {len(chunks)} text chunks into Chroma!")
+            progress_bar = st.progress(0, text="Starting indexing...")
+
+            # Track variables outside the loop to catch them when the generator finishes
+            vector_store = None
+            chunks = []
+
+            for current, total, v_store, all_chunks in index_uploaded_files_to_vector_store(uploaded_files):
+                percent = int((current / total) * 100)
+                progress_bar.progress(percent, text=f"Processing file ({current}/{total})")
+
+                # These will overwrite with the actual objects on the final yield
+                if v_store is not None:
+                    vector_store = v_store
+                    chunks = all_chunks
+
+            # Save to session state AFTER the loop finishes
+            st.session_state.vector_store = vector_store
+            st.session_state.uploaded_files_size = len(chunks)
+
+            progress_bar.empty()
+            if chunks:
+                st.success(f"Successfully indexed {len(chunks)} text chunks into Chroma!")
 
         if self.vector_store is not None:
             st.markdown(
@@ -156,70 +172,60 @@ class ChatUI:
                     # Append current user input
                     langchain_messages.append(HumanMessage(content=str(new_user_input)))
 
-                    placeholder = st.empty()
-                    with st.spinner("Analyzing request..."):
+                    with st.spinner("Processing request..."):
+                        placeholder = st.empty()
                         ai_msg = llm_with_tools.invoke(langchain_messages)  # Invoke request
 
-                    query_to_run = ""
+                        query_to_run = ""
 
-                    # 3-TURN SEQUENTIAL CONTEXT AUTO-CORRECTION LOOP
-                    for loop_turn in range(3):
-                        if not ai_msg.tool_calls:
-                            break
+                        # 3-TURN SEQUENTIAL CONTEXT AUTO-CORRECTION LOOP
+                        for loop_turn in range(3):
+                            if not ai_msg.tool_calls:
+                                break
 
-                        # Step A: Append the tracking instruction containing the tool generation request
-                        langchain_messages.append(ai_msg)
+                            # Step A: Append the tracking instruction containing the tool generation request
+                            langchain_messages.append(ai_msg)
 
-                        # Step B: Dynamically extract ALL tool call requests generated on this turn
-                        current_calls = ai_msg.tool_calls if isinstance(ai_msg.tool_calls, list) else [
-                            ai_msg.tool_calls]
+                            # Step B: Dynamically extract ALL tool call requests generated on this turn
+                            current_calls = ai_msg.tool_calls if isinstance(ai_msg.tool_calls, list) else [
+                                ai_msg.tool_calls]
 
-                        # Step C: Loop over each call in this turn to respond to every requested ID sequentially
-                        for tool_call in current_calls:
+                            # Step C: Loop over each call in this turn to respond to every requested ID sequentially
+                            for tool_call in current_calls:
 
-                            # CASE 1: Processing text matches from files
-                            if tool_call["name"] == "search_uploaded_documents":
-                                # with st.status("🔍 Extracting text fields from files...",
-                                #                expanded=False) as status:
-                                context_raw = search_uploaded_documents.invoke(tool_call)
-                                    # status.update(label="Document content loaded!", state="complete")
+                                # CASE 1: Processing text matches from files
+                                if tool_call["name"] == "search_uploaded_documents":
+                                    context_raw = search_uploaded_documents.invoke(tool_call)
+                                    langchain_messages.append(
+                                        ToolMessage(content=str(context_raw), tool_call_id=tool_call["id"]))
 
-                                langchain_messages.append(
-                                    ToolMessage(content=str(context_raw), tool_call_id=tool_call["id"]))
+                                # CASE 2: Processing layout contexts from schema
+                                elif tool_call["name"] == "fetch_database_schema":
+                                    context_raw = fetch_database_schema.invoke(tool_call)
+                                    langchain_messages.append(
+                                        ToolMessage(content=str(context_raw), tool_call_id=tool_call["id"]))
 
-                            # CASE 2: Processing layout contexts from schema
-                            elif tool_call["name"] == "fetch_database_schema":
-                                # with st.status("📊 Loading database schema definitions...",
-                                #                expanded=False) as status:
-                                context_raw = fetch_database_schema.invoke(tool_call)
-                                    # status.update(label="Schema layouts loaded!", state="complete")
+                                # CASE 3: Executing final SQL compilation queries
+                                elif tool_call["name"] == "run_database_query":
+                                    query_to_run = tool_call["args"].get("sql_query", "")
+                                    st.session_state.current_executed_sql = query_to_run
 
-                                langchain_messages.append(
-                                    ToolMessage(content=str(context_raw), tool_call_id=tool_call["id"]))
+                                    with st.status("🤖 Agent executing SQL query...", expanded=False) as status:
+                                        st.code(query_to_run, language="sql")
+                                        context_raw = run_database_query.invoke(tool_call)
 
-                            # CASE 3: Executing final SQL compilation queries
-                            elif tool_call["name"] == "run_database_query":
-                                query_to_run = tool_call["args"].get("sql_query", "")
-                                st.session_state.current_executed_sql = query_to_run
+                                        if "SQL Execution Error" in str(context_raw):
+                                            status.update(
+                                                label="SQL syntax error detected. Retrying auto-correction...",
+                                                state="running")
+                                        else:
+                                            status.update(label="Query complete! Synthesizing findings...",
+                                                          state="complete")
 
-                                with st.status("🤖 Agent executing SQL query...", expanded=False) as status:
-                                    st.code(query_to_run, language="sql")
-                                    context_raw = run_database_query.invoke(tool_call)
+                                    langchain_messages.append(
+                                        ToolMessage(content=str(context_raw), tool_call_id=tool_call["id"]))
 
-                                    if "SQL Execution Error" in str(context_raw):
-                                        status.update(
-                                            label="SQL syntax error detected. Retrying auto-correction...",
-                                            state="running")
-                                    else:
-                                        status.update(label="Query complete! Synthesizing findings...",
-                                                      state="complete")
-
-                                langchain_messages.append(
-                                    ToolMessage(content=str(context_raw), tool_call_id=tool_call["id"]))
-
-                        # Step D: Once all tool calls for this turn have responses, invoke the model for its next step
-                        with st.spinner("Evaluating response..."):
-                            ai_msg = llm_with_tools.invoke(langchain_messages)
+                                ai_msg = llm_with_tools.invoke(langchain_messages)
 
                     # 1. Capture the full text that was already generated inside the loop
                     full_response = ai_msg.content

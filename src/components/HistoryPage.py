@@ -3,6 +3,7 @@ from typing import Any
 import streamlit as st
 import pandas as pd
 
+
 class HistoryPage:
     def __init__(self, source_url: str):
         self.source_url = source_url
@@ -30,7 +31,6 @@ class HistoryPage:
 
             table_data = []
             table_scores = []
-            query_rules = []
             document_data = []
             document_scores = []
 
@@ -82,7 +82,7 @@ class HistoryPage:
                 st.caption(f"**Query:** {query}")
 
                 tab1, tab2, tab3, tab4 = st.tabs([
-                    ":green[:material/table_chart:] Tables and Rules",
+                    ":green[:material/table_chart:] Tables",
                     ":orange[:material/description:] Docs",
                     ":violet[:material/database:] SQL Query",
                     ":red[:material/forum:] Response"
@@ -91,11 +91,15 @@ class HistoryPage:
                 with tab1:
                     if not table_df.empty:
                         st.dataframe(
-                            data=table_df[["Table", "Score"]],  # Keep it tight for small spaces
+                            data=table_df[["Table", "Score"]],
                             column_config={
                                 "Table": st.column_config.TextColumn("Table", width="medium"),
-                                "Score": st.column_config.ProgressColumn("Score", format="%.2f", min_value=0.0,
-                                                                         max_value=1.0, width="small"),
+                                "Score": st.column_config.ProgressColumn("Score",
+                                                                         format="%.2f",
+                                                                         min_value=0.0,
+                                                                         max_value=1.0,
+                                                                         width="small",
+                                                                         color="auto-inverse"),
                             },
                             hide_index=True,
                             use_container_width=True
@@ -108,8 +112,12 @@ class HistoryPage:
                             doc_df[["Document", "Score"]],
                             column_config={
                                 "Document": st.column_config.TextColumn("Doc Source", width="medium"),
-                                "Score": st.column_config.ProgressColumn("Score", format="%.2f", min_value=0.0,
-                                                                         max_value=1.0, width="small"),
+                                "Score": st.column_config.ProgressColumn("Score",
+                                                                         format="%.2f",
+                                                                         min_value=0.0,
+                                                                         max_value=1.0,
+                                                                         width="small",
+                                                                         color="auto-inverse"),
                             },
                             hide_index=True,
                             use_container_width=True

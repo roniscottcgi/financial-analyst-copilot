@@ -20,3 +20,4 @@ langchain-chroma
 markdown
 beautifulsoup4
 docling
+pymupdf4llm

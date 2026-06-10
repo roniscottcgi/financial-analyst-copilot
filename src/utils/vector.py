@@ -101,6 +101,7 @@ def index_uploaded_files_to_vector_store(uploaded_files: list[UploadedFile] | Up
             all_chunks.append(chunk)
 
         st.session_state.indexed_files.add(uploaded_file.name)
+        yield i + 1, len(uploaded_files), None, []
 
     if all_chunks:
         vector_store = append_to_vector_store(
@@ -108,9 +109,9 @@ def index_uploaded_files_to_vector_store(uploaded_files: list[UploadedFile] | Up
             ids=all_stable_ids,
             collection_name="user_documents"
         )
-        return vector_store, all_chunks
-
-    return None, []
+        yield len(uploaded_files), len(uploaded_files), vector_store, all_chunks
+    else:
+        yield len(uploaded_files), len(uploaded_files), None, []
 
 
 def collect_context_from_vector_store(collection: str, query: str | None | ChatInputValue) -> tuple[
